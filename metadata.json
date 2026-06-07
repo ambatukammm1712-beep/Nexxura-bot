@@ -1,0 +1,10 @@
+{
+  "name": "Nexxura AI",
+  "description": "A high-performance AI chat assistant with real-time database synchronization and fast Groq integration.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

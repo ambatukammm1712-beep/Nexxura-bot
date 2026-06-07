@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "Represents an individual chat conversation session with metadata.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique session ID containing alphanumeric characters"
+        },
+        "title": {
+          "type": "string",
+          "description": "The computed or user-specified title of the chat thread"
+        },
+        "createdAt": {
+          "type": "integer",
+          "description": "Epoch timestamp representing creation date"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "description": "Epoch timestamp representing last updated date"
+        },
+        "activeModel": {
+          "type": "string",
+          "enum": ["Jarwo Flash", "Jarwo Thinking", "Llama 3.3 (Groq)", "Llama 3.1 (Groq)", "Qwen 32B (Groq)"],
+          "description": "The active AI model used in the session"
+        }
+      },
+      "required": ["id", "title", "createdAt", "updatedAt", "activeModel"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Holds the individual dialog turns (User and AI) inside a session.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique message ID containing alphanumeric characters"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "The ID of the session this message belongs to"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "bot"],
+          "description": "The sender of the message"
+        },
+        "content": {
+          "type": "string",
+          "description": "The markdown or text payload of the message"
+        },
+        "timestamp": {
+          "type": "integer",
+          "description": "Epoch timestamp representing message delivery"
+        },
+        "attachments": {
+          "type": "array",
+          "description": "List of rich media attachment records associated with this prompt"
+        }
+      },
+      "required": ["id", "sessionId", "role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/sessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Stores user chat sessions."
+    },
+    "/sessions/{sessionId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Nested subcollection holding all messages for a specific session."
+    }
+  }
+}

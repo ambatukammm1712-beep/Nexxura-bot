@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable global safety primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Main session matches
+    match /sessions/{sessionId} {
+      // 1. Schema Validation for ChatSessions
+      function isValidChatSession(data) {
+        return data.keys().hasAll(['id', 'title', 'createdAt', 'updatedAt', 'activeModel']) &&
+               (data.keys().size() == 5 || (data.keys().size() == 6 && data.keys().hasAll(['pinned']))) &&
+               isValidId(data.id) &&
+               data.title is string && data.title.size() <= 256 &&
+               data.createdAt is int &&
+               data.updatedAt is int &&
+               (data.activeModel == 'Jarwo Flash' || data.activeModel == 'Jarwo Thinking' || data.activeModel == 'Llama 3.3 (Groq)' || data.activeModel == 'Llama 3.1 (Groq)' || data.activeModel == 'Qwen 32B (Groq)') &&
+               (!data.keys().contains('pinned') || data.pinned is bool);
+      }
+
+      // Check owner context by mapping ownership.
+      // Since our workspace doesn't enforce strict tenant accounts, any logged in user controls their sessions,
+      // or we can allow users to read/write their own sessions. To enforce ownership, sessions doc can have an implicit ownerUid matching standard UID.
+      // E.g., we can verify a custom prefix or allow simple signed-in reads.
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidChatSession(request.resource.data);
+      allow update: if isSignedIn() && isValidChatSession(request.resource.data) && (
+        // Action: Update Title
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'updatedAt']) ||
+        // Action: Toggle Model
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeModel', 'updatedAt']) ||
+        // Action: Toggle Pin Status
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned', 'updatedAt'])
+      );
+      allow delete: if isSignedIn();
+
+      // Nested messages subcollection
+      match /messages/{messageId} {
+        function isValidMessage(data) {
+          return data.keys().hasAll(['id', 'sessionId', 'role', 'content', 'timestamp']) &&
+                 data.keys().size() >= 5 &&
+                 isValidId(data.id) &&
+                 isValidId(data.sessionId) &&
+                 (data.role == 'user' || data.role == 'bot') &&
+                 data.content is string && data.content.size() <= 50000 &&
+                 data.timestamp is int;
+        }
+
+        allow read, list: if isSignedIn();
+        allow create: if isSignedIn() && isValidMessage(request.resource.data);
+        allow update, delete: if isSignedIn() && isValidMessage(request.resource.data);
+      }
+    }
+  }
+}
